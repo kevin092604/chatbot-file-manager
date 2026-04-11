@@ -1,0 +1,17 @@
+{
+  "httpMethod": "GET",
+  "resource": "/audit",
+  "path": "/audit",
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "email": "juan@unah.edu.hn",
+        "cognito:groups": "voae"
+      }
+    }
+  },
+  "body": null,
+  "headers": {},
+  "queryStringParameters": null,
+  "pathParameters": null
+}

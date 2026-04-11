@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sistema de Gestion de Archivos VOAE/UNAH
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Architectures:
+      - x86_64
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  KnowledgeBaseId:
+    Type: String
+    Default: mock-kb-id
+  DataSourceId:
+    Type: String
+    Default: mock-ds-id
+
+Resources:
+  # --- API Gateway ---
+  VoaeApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub voae-api-${Environment}
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+        AddDefaultAuthorizerToCorsPreflight: false
+
+  # --- Cognito ---
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub voae-users-${Environment}
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: false
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub voae-web-${Environment}
+      UserPoolId: !Ref CognitoUserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: false
+
+  # --- S3 Bucket para documentos ---
+  VoaeDocsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub voae-docs-${Environment}-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST, DELETE]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+
+  # --- DynamoDB Auditoria ---
+  AuditoriaTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub voae-auditoria-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: vicerrectoria
+          AttributeType: S
+        - AttributeName: fecha
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: vicerrectoria-fecha-index
+          KeySchema:
+            - AttributeName: vicerrectoria
+              KeyType: HASH
+            - AttributeName: fecha
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # --- Lambda: file_manager ---
+  FileManagerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub voae-file-manager-${Environment}
+      CodeUri: functions/file_manager/
+      Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          DOCS_BUCKET: !Ref VoaeDocsBucket
+          BEDROCK_SYNC_FUNCTION: !Ref BedrockSyncFunction
+          AUDITORIA_FUNCTION: !Ref AuditoriaFunction
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          DATA_SOURCE_ID: !Ref DataSourceId
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref VoaeDocsBucket
+        - LambdaInvokePolicy:
+            FunctionName: !Ref BedrockSyncFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AuditoriaFunction
+      Events:
+        ListFiles:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /files
+            Method: GET
+        GetFile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /files/{filename}
+            Method: GET
+        UploadFile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /files
+            Method: POST
+        UpdateFile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /files/{filename}
+            Method: PUT
+        DeleteFile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /files/{filename}
+            Method: DELETE
+
+  # --- Lambda: bedrock_sync ---
+  BedrockSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub voae-bedrock-sync-${Environment}
+      CodeUri: functions/bedrock_sync/
+      Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          DATA_SOURCE_ID: !Ref DataSourceId
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+              Resource: '*'
+
+  # --- Lambda: auditoria ---
+  AuditoriaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub voae-auditoria-${Environment}
+      CodeUri: functions/auditoria/
+      Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          AUDITORIA_TABLE: !Ref AuditoriaTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditoriaTable
+      Events:
+        WriteAudit:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /audit
+            Method: POST
+        GetAudit:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VoaeApi
+            Path: /audit
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: URL del API Gateway
+    Value: !Sub https://${VoaeApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+  DocsBucket:
+    Description: Bucket S3 de documentos
+    Value: !Ref VoaeDocsBucket
+  AuditoriaTableName:
+    Description: Tabla DynamoDB de auditoria
+    Value: !Ref AuditoriaTable
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+  CognitoClientId:
+    Description: Cognito App Client ID
+    Value: !Ref CognitoUserPoolClient

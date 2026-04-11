@@ -1,0 +1,19 @@
+{
+  "httpMethod": "POST",
+  "resource": "/files",
+  "path": "/files",
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "email": "juan@unah.edu.hn",
+        "cognito:groups": "voae"
+      }
+    }
+  },
+  "body": "{\"filename\": \"Becas_UNAH.md\", \"content\": \"# Becas UNAH\\n\\nInformacion sobre becas disponibles.\\n\"}",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "queryStringParameters": null,
+  "pathParameters": null
+}

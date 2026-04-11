@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Build
+.aws-sam/
+frontend/dist/
+*.zip
+
+# Environment
+.env
+*.env.local
+env.json
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# LocalStack
+volume/

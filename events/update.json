@@ -1,0 +1,21 @@
+{
+  "httpMethod": "PUT",
+  "resource": "/files/{filename}",
+  "path": "/files/Becas_UNAH.md",
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "email": "juan@unah.edu.hn",
+        "cognito:groups": "voae"
+      }
+    }
+  },
+  "body": "{\"content\": \"# Becas UNAH\\n\\nInformacion actualizada sobre becas.\\n\\n## Requisitos\\n- Indice academico mayor a 80%\\n\"}",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "queryStringParameters": null,
+  "pathParameters": {
+    "filename": "Becas_UNAH.md"
+  }
+}

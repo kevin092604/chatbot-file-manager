@@ -53,6 +53,51 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify({ key }),
     }),
+  listVersions: (key) =>
+    request(`/files/versions?key=${encodeURIComponent(key)}`),
+  restoreVersion: (key, version_id) =>
+    request("/files/restore", {
+      method: "POST",
+      body: JSON.stringify({ key, version_id }),
+    }),
+
+  // Users
+  listUsers: () => request("/users"),
+  createUser: (email, temp_password, grupo) =>
+    request("/users", {
+      method: "POST",
+      body: JSON.stringify({ email, temp_password, grupo }),
+    }),
+  deleteUser: (username) =>
+    request("/users", {
+      method: "DELETE",
+      body: JSON.stringify({ username }),
+    }),
+
+  // Groups
+  listGroups: () => request("/groups"),
+  createGroup: (name, description) =>
+    request("/groups", {
+      method: "POST",
+      body: JSON.stringify({ name, description }),
+    }),
+  deleteGroup: (name) =>
+    request("/groups", {
+      method: "DELETE",
+      body: JSON.stringify({ name }),
+    }),
+
+  // User-Group membership
+  addUserToGroup: (username, grupo) =>
+    request("/users/groups", {
+      method: "POST",
+      body: JSON.stringify({ username, grupo }),
+    }),
+  removeUserFromGroup: (username, grupo) =>
+    request("/users/groups", {
+      method: "DELETE",
+      body: JSON.stringify({ username, grupo }),
+    }),
 
   // Audit
   getAuditLogs: (params = {}) => {

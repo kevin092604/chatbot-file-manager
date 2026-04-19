@@ -4,24 +4,30 @@ import "easymde/dist/easymde.min.css";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 
-const VICERRECTORIAS = [
-  { id: "voae", label: "VOAE" },
-  { id: "vra", label: "VRA" },
-  { id: "vrip", label: "VRIP" },
-  { id: "vrog", label: "VROG" },
-];
-
-export default function FileEditor({ file, onClose, onSaved }) {
+export default function FileEditor({ file, upload, onClose, onSaved }) {
   const { isAdmin } = useAuth();
-  const [filename, setFilename] = useState("");
-  const [targetVice, setTargetVice] = useState("voae");
+  const [filename, setFilename] = useState(upload?.filename || "");
+  const [targetVice, setTargetVice] = useState("");
+  const [availableGroups, setAvailableGroups] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [initialContent, setInitialContent] = useState("");
-  const contentRef = useRef("");
+  const [initialContent, setInitialContent] = useState(upload?.content || "");
+  const contentRef = useRef(upload?.content || "");
 
   const isNew = !file;
+
+  useEffect(() => {
+    if (!isNew || !isAdmin) return;
+    api
+      .listGroups()
+      .then((res) => {
+        const groups = (res.groups || []).filter((g) => g.name !== "admin");
+        setAvailableGroups(groups);
+        if (groups.length && !targetVice) setTargetVice(groups[0].name);
+      })
+      .catch((err) => setError(`Error cargando grupos: ${err.message}`));
+  }, [isNew, isAdmin]);
 
   useEffect(() => {
     if (file) {
@@ -117,8 +123,14 @@ export default function FileEditor({ file, onClose, onSaved }) {
                 onChange={(e) => setTargetVice(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               >
-                {VICERRECTORIAS.map((v) => (
-                  <option key={v.id} value={v.id}>{v.label}</option>
+                {availableGroups.length === 0 && (
+                  <option value="">Cargando grupos...</option>
+                )}
+                {availableGroups.map((g) => (
+                  <option key={g.name} value={g.name}>
+                    {g.name.toUpperCase()}
+                    {g.description ? ` — ${g.description}` : ""}
+                  </option>
                 ))}
               </select>
             </div>

@@ -4,14 +4,17 @@ __pycache__/
 *.pyc
 
 # Build
-.aws-sam/
 frontend/dist/
 *.zip
+functions/*/layer/
+=*
+
+# Docs locales
+docs/
 
 # Environment
 .env
 *.env.local
-env.json
 
 # IDE
 .vscode/
@@ -23,6 +26,3 @@ env.json
 # OS
 .DS_Store
 Thumbs.db
-
-# LocalStack
-volume/

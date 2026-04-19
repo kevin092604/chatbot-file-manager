@@ -135,6 +135,11 @@ jobs:
       - if: steps.gate.outputs.run == 'true'
         name: Build
         working-directory: frontend
+        env:
+          VITE_AUTH_MOCK: "false"
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
         run: |
           npm ci
           npm run build

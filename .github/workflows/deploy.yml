@@ -1,0 +1,158 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Qué deployar (all = todo)
+        type: choice
+        options: [all, frontend, auditoria, bedrock_sync, file_manager, users]
+        default: all
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auditoria: ${{ steps.filter.outputs.auditoria }}
+      bedrock_sync: ${{ steps.filter.outputs.bedrock_sync }}
+      file_manager: ${{ steps.filter.outputs.file_manager }}
+      users: ${{ steps.filter.outputs.users }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auditoria:
+              - 'functions/auditoria/handler.py'
+              - 'functions/auditoria/requirements.txt'
+            bedrock_sync:
+              - 'functions/bedrock_sync/handler.py'
+              - 'functions/bedrock_sync/requirements.txt'
+            file_manager:
+              - 'functions/file_manager/handler.py'
+              - 'functions/file_manager/requirements.txt'
+            users:
+              - 'functions/users/handler.py'
+            frontend:
+              - 'frontend/**'
+              - '!frontend/node_modules/**'
+              - '!frontend/dist/**'
+
+  deploy-lambda:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: auditoria
+            function_name_var: LAMBDA_AUDITORIA_NAME
+            changed: needs.changes.outputs.auditoria
+          - key: bedrock_sync
+            function_name_var: LAMBDA_BEDROCK_SYNC_NAME
+            changed: needs.changes.outputs.bedrock_sync
+          - key: file_manager
+            function_name_var: LAMBDA_FILE_MANAGER_NAME
+            changed: needs.changes.outputs.file_manager
+          - key: users
+            function_name_var: LAMBDA_USERS_NAME
+            changed: needs.changes.outputs.users
+    steps:
+      - name: Should run?
+        id: gate
+        run: |
+          target="${{ github.event.inputs.target || 'all' }}"
+          changed="${{ matrix.changed && 'true' || 'false' }}"
+          if [ "$target" = "all" ] || [ "$target" = "${{ matrix.key }}" ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$changed" = "true" ]; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.run == 'true'
+        name: Empaquetar handler
+        run: |
+          cd functions/${{ matrix.key }}
+          zip -j /tmp/${{ matrix.key }}.zip handler.py
+
+      - if: steps.gate.outputs.run == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - if: steps.gate.outputs.run == 'true'
+        name: aws lambda update-function-code
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ vars[matrix.function_name_var] }}" \
+            --zip-file fileb:///tmp/${{ matrix.key }}.zip \
+            --publish
+
+  deploy-frontend:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Should run?
+        id: gate
+        run: |
+          target="${{ github.event.inputs.target || 'all' }}"
+          changed="${{ needs.changes.outputs.frontend }}"
+          if [ "$target" = "all" ] || [ "$target" = "frontend" ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$changed" = "true" ]; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - if: steps.gate.outputs.run == 'true'
+        name: Build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - if: steps.gate.outputs.run == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - if: steps.gate.outputs.run == 'true'
+        name: Sync a S3
+        run: |
+          aws s3 sync frontend/dist s3://${{ vars.S3_BUCKET_FRONTEND }} --delete
+
+      - if: steps.gate.outputs.run == 'true'
+        name: Invalidar CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

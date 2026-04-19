@@ -2,16 +2,46 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-import boto3
 import logging
-from boto3.dynamodb.conditions import Key, Attr
+import pymssql
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-AUDITORIA_TABLE = os.environ["AUDITORIA_TABLE"]
+DB_HOST = os.environ["DB_HOST"]
+DB_PORT = int(os.environ.get("DB_PORT", "1433"))
+DB_NAME = os.environ.get("DB_NAME", "voae")
+DB_USER = os.environ["DB_USER"]
+DB_PASSWORD = os.environ["DB_PASSWORD"]
 
-dynamodb = boto3.resource("dynamodb")
+_conn = None
+
+
+def get_conn():
+    """Reusa la conexion entre invocaciones warm de Lambda."""
+    global _conn
+    if _conn is not None:
+        try:
+            _conn.ping()
+            return _conn
+        except Exception:
+            try:
+                _conn.close()
+            except Exception:
+                pass
+            _conn = None
+
+    _conn = pymssql.connect(
+        server=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        as_dict=True,
+        login_timeout=10,
+        timeout=15,
+    )
+    return _conn
 
 
 def response(status_code, body):
@@ -22,7 +52,7 @@ def response(status_code, body):
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "Content-Type,Authorization",
         },
-        "body": json.dumps(body, ensure_ascii=False),
+        "body": json.dumps(body, ensure_ascii=False, default=str),
     }
 
 
@@ -43,92 +73,85 @@ def get_claims(event):
 
 
 def write_record(registro):
-    """Escribe un registro de auditoria en DynamoDB."""
-    table = dynamodb.Table(AUDITORIA_TABLE)
-
+    """Escribe un registro de auditoria en SQL Server."""
     item = {
         "id": str(uuid.uuid4()),
         "usuario": registro["usuario"],
         "vicerrectoria": registro["vicerrectoria"],
         "accion": registro["accion"],
         "archivo": registro["archivo"],
-        "fecha": datetime.now(timezone.utc).isoformat(),
+        "fecha": datetime.now(timezone.utc),
         "estado": registro.get("estado", "EXITOSO"),
         "detalle": registro.get("detalle", ""),
     }
 
-    table.put_item(Item=item)
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO auditoria
+                (id, usuario, vicerrectoria, accion, archivo, fecha, estado, detalle)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                item["id"],
+                item["usuario"],
+                item["vicerrectoria"],
+                item["accion"],
+                item["archivo"],
+                item["fecha"],
+                item["estado"],
+                item["detalle"],
+            ),
+        )
+    conn.commit()
+
     logger.info(f"Registro de auditoria creado: {item['id']}")
+    item["fecha"] = item["fecha"].isoformat()
     return item
 
 
 def query_records(vicerrectoria, is_admin, params):
     """Consulta registros de auditoria con filtros opcionales."""
-    table = dynamodb.Table(AUDITORIA_TABLE)
+    where = []
+    args = []
 
     if is_admin and not params.get("vicerrectoria"):
-        # Admin sin filtro de vicerrectoria: scan completo
-        scan_kwargs = {}
-        filter_expressions = []
-
-        if params.get("usuario"):
-            filter_expressions.append(Attr("usuario").eq(params["usuario"]))
-        if params.get("accion"):
-            filter_expressions.append(Attr("accion").eq(params["accion"]))
-        if params.get("fecha_desde"):
-            filter_expressions.append(Attr("fecha").gte(params["fecha_desde"]))
-        if params.get("fecha_hasta"):
-            filter_expressions.append(Attr("fecha").lte(params["fecha_hasta"]))
-
-        if filter_expressions:
-            combined = filter_expressions[0]
-            for expr in filter_expressions[1:]:
-                combined = combined & expr
-            scan_kwargs["FilterExpression"] = combined
-
-        result = table.scan(**scan_kwargs)
+        pass  # admin sin filtro: todos
     else:
-        # Filtrado por vicerrectoria usando GSI
         target_vice = params.get("vicerrectoria", vicerrectoria) if is_admin else vicerrectoria
-        query_kwargs = {
-            "IndexName": "vicerrectoria-fecha-index",
-            "KeyConditionExpression": Key("vicerrectoria").eq(target_vice),
-        }
+        where.append("vicerrectoria = %s")
+        args.append(target_vice)
 
-        # Filtro de rango de fechas en la key condition
-        if params.get("fecha_desde") and params.get("fecha_hasta"):
-            query_kwargs["KeyConditionExpression"] = (
-                Key("vicerrectoria").eq(target_vice)
-                & Key("fecha").between(params["fecha_desde"], params["fecha_hasta"])
-            )
-        elif params.get("fecha_desde"):
-            query_kwargs["KeyConditionExpression"] = (
-                Key("vicerrectoria").eq(target_vice)
-                & Key("fecha").gte(params["fecha_desde"])
-            )
-        elif params.get("fecha_hasta"):
-            query_kwargs["KeyConditionExpression"] = (
-                Key("vicerrectoria").eq(target_vice)
-                & Key("fecha").lte(params["fecha_hasta"])
-            )
+    if params.get("usuario"):
+        where.append("usuario = %s")
+        args.append(params["usuario"])
+    if params.get("accion"):
+        where.append("accion = %s")
+        args.append(params["accion"])
+    if params.get("fecha_desde"):
+        where.append("fecha >= %s")
+        args.append(params["fecha_desde"])
+    if params.get("fecha_hasta"):
+        where.append("fecha <= %s")
+        args.append(params["fecha_hasta"])
 
-        # Filtros adicionales
-        filter_expressions = []
-        if params.get("usuario"):
-            filter_expressions.append(Attr("usuario").eq(params["usuario"]))
-        if params.get("accion"):
-            filter_expressions.append(Attr("accion").eq(params["accion"]))
+    sql = "SELECT id, usuario, vicerrectoria, accion, archivo, fecha, estado, detalle FROM auditoria"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY fecha DESC"
 
-        if filter_expressions:
-            combined = filter_expressions[0]
-            for expr in filter_expressions[1:]:
-                combined = combined & expr
-            query_kwargs["FilterExpression"] = combined
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(sql, tuple(args))
+        rows = cur.fetchall()
 
-        query_kwargs["ScanIndexForward"] = False  # Mas recientes primero
-        result = table.query(**query_kwargs)
-
-    return result.get("Items", [])
+    for row in rows:
+        if isinstance(row.get("fecha"), datetime):
+            row["fecha"] = row["fecha"].isoformat()
+        if row.get("id") is not None:
+            row["id"] = str(row["id"])
+    return rows
 
 
 def lambda_handler(event, context):

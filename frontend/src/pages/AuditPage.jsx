@@ -110,7 +110,7 @@ export default function AuditPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Auditoria</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Auditoría</h1>
           <p className="text-sm text-gray-500 mt-1">Registro de actividad del sistema</p>
         </div>
         {isAdmin && (
@@ -138,7 +138,7 @@ export default function AuditPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Accion</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Acción</label>
             <select
               value={filtroAccion}
               onChange={(e) => setFiltroAccion(e.target.value)}

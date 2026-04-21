@@ -139,7 +139,7 @@ export default function FilesPage() {
             <svg className="w-10 h-10 text-blue-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <p className="text-sm font-medium text-blue-700">Suelta los archivos aqui</p>
+            <p className="text-sm font-medium text-blue-700">Suelta los archivos aquí</p>
             <p className="text-xs text-blue-500 mt-1">.md y .txt</p>
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function FilesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Archivos</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Gestiona los archivos .md de tu vicerrectoria
+            Gestiona los archivos .md de tu vicerrectoría
           </p>
         </div>
         {!editing && canCreate && (

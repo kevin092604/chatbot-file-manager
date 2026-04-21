@@ -56,7 +56,7 @@ export default function FileList({ onEdit, onRefresh, refreshKey }) {
   const handleDelete = (file) => {
     setConfirm({
       title: "Eliminar archivo",
-      message: `¿Eliminar ${file.key}? Esta accion no se puede deshacer.`,
+      message: `¿Eliminar ${file.key}? Esta acción no se puede deshacer.`,
       confirmText: "Eliminar",
       danger: true,
       onConfirm: async () => {
@@ -107,15 +107,15 @@ export default function FileList({ onEdit, onRefresh, refreshKey }) {
 
   const handleRestore = (versionId) => {
     setConfirm({
-      title: "Restaurar version",
-      message: "¿Restaurar esta version? El archivo actual sera reemplazado.",
+      title: "Restaurar versión",
+      message: "¿Restaurar esta versión? El archivo actual será reemplazado.",
       confirmText: "Restaurar",
       onConfirm: async () => {
         setConfirm(null);
         setRestoring(versionId);
         try {
           await api.restoreVersion(versions, versionId);
-          toast.success("Version restaurada");
+          toast.success("Versión restaurada");
           setVersions(null);
           onRefresh?.();
         } catch (err) {
@@ -155,7 +155,7 @@ export default function FileList({ onEdit, onRefresh, refreshKey }) {
     return (
       <div className="text-center py-12 text-gray-500">
         <p className="text-lg">No hay archivos</p>
-        <p className="text-sm mt-1">Sube tu primer archivo .md</p>
+        <p className="text-sm mt-1">Sube tu primer archivo</p>
       </div>
     );
   }
@@ -185,7 +185,7 @@ export default function FileList({ onEdit, onRefresh, refreshKey }) {
                   Archivo
                 </th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">
-                  Tamano
+                  Tamaño
                 </th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">
                   Modificado

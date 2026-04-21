@@ -30,7 +30,7 @@ export default function Layout() {
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-lg font-bold text-gray-900">UNAH</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestion de Archivos</p>
+          <p className="text-sm text-gray-500 mt-1">Gestión de Archivos</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -61,7 +61,7 @@ export default function Layout() {
             onClick={signOut}
             className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            Cerrar sesion
+            Cerrar sesión
           </button>
         </div>
       </aside>

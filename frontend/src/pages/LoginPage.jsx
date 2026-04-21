@@ -34,12 +34,12 @@ export default function LoginPage() {
     setError("");
 
     if (newPassword !== confirmPassword) {
-      setError("Las contrasenas no coinciden");
+      setError("Las contraseñas no coinciden");
       return;
     }
 
     if (newPassword.length < 8) {
-      setError("La contrasena debe tener al menos 8 caracteres");
+      setError("La contraseña debe tener al menos 8 caracteres");
       return;
     }
 
@@ -60,14 +60,14 @@ export default function LoginPage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900">UNAH</h1>
           <p className="mt-2 text-gray-600">
-            Sistema de Gestion de Archivos
+            Sistema de Gestión de Archivos
           </p>
         </div>
 
         {newPasswordRequired ? (
           <form onSubmit={handleNewPassword} className="bg-white shadow-sm rounded-xl p-8 space-y-6 border border-gray-200">
             <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-lg text-sm">
-              Debes cambiar tu contrasena temporal
+              Debes cambiar tu contraseña temporal
             </div>
 
             {error && (
@@ -78,7 +78,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Nueva contrasena
+                Nueva contraseña
               </label>
               <input
                 id="newPassword"
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirmar contrasena
+                Confirmar contraseña
               </label>
               <input
                 id="confirmPassword"
@@ -111,7 +111,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? "Cambiando..." : "Cambiar contrasena"}
+              {loading ? "Cambiando..." : "Cambiar contraseña"}
             </button>
           </form>
         ) : (
@@ -139,7 +139,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Contrasena
+                Contraseña
               </label>
               <input
                 id="password"

@@ -65,7 +65,7 @@ function UsersPanel() {
   const handleDelete = (username) => {
     setConfirm({
       title: "Eliminar usuario",
-      message: `¿Eliminar usuario ${username}? Esta accion no se puede deshacer.`,
+      message: `¿Eliminar usuario ${username}? Esta acción no se puede deshacer.`,
       confirmText: "Eliminar",
       danger: true,
       onConfirm: async () => {
@@ -143,7 +143,7 @@ function UsersPanel() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Contrasena temporal
+                Contraseña temporal
               </label>
               <input
                 type="text"
@@ -451,7 +451,7 @@ function GroupsPanel() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Descripcion
+                Descripción
               </label>
               <input
                 type="text"
@@ -490,7 +490,7 @@ function GroupsPanel() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre o descripcion..."
+          placeholder="Buscar por nombre o descripción..."
           className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
         />
       </div>
@@ -561,7 +561,7 @@ export default function AdminPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
-          Administracion de Usuarios
+          Administración de Usuarios
         </h1>
         <p className="text-sm text-gray-500 mt-1">
           Gestiona usuarios y grupos del sistema

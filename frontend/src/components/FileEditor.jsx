@@ -116,7 +116,7 @@ export default function FileEditor({ file, upload, onClose, onSaved }) {
           {isAdmin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Vicerrectoria
+                Vicerrectoría
               </label>
               <select
                 value={targetVice}
